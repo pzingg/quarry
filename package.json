@@ -1,0 +1,15 @@
+{
+  "name": "Quarry",
+  "version": "0.0.1",
+  "description": "RESTful database abstraction application",
+  "main": ".quarry/server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": "https://github.com/joshforisha/quarry",
+  "author": "Josh Forisha <josh@forisha.com>",
+  "license": "MIT",
+  "dependencies": {
+    "pg": "^3.4.2"
+  }
+}
