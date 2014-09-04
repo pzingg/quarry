@@ -1,6 +1,6 @@
 {
-  "name": "Quarry",
-  "version": "0.0.1",
+  "name": "quarry",
+  "version": "0.0.3",
   "description": "RESTful database abstraction application",
   "main": ".quarry/server.js",
   "scripts": {
