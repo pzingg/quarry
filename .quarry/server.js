@@ -1,8 +1,9 @@
 // Library requirements
-var fs = require('fs');
+var fs   = require('fs');
 var http = require('http');
 var path = require('path');
-var pg = require('pg');
+var pg   = require('pg');
+var util = require('util');
 
 // Color shell strings
 var blue   = '\033[0;34m';
@@ -25,21 +26,71 @@ connectionPreString = 'postgres://' + config.database.user +
   (config.database.password ? ':' + config.database.password : '') +
   '@' + config.database.host + ':' + config.database.port;
 
-function log(color, args) {
-  console.log(color + args[0].replace( /\$([0-9]*)/g, function (match, value) {
-    return white + args[value].toString() + color;
-  }) + normal);
-}
+function createFixtures(database) {
+  if (!database.config.hasOwnProperty('fixtures') || database.config.fixtures.length < 1) {
+    return;
+  }
 
-function logError() { log(red, arguments); }
-function logNotice() { log(blue, arguments); }
-function logSuccess() { log(green, arguments); }
-
-function createTables(database) {
+  util.print('Connecting to ' + white + database.name + normal + '... ');
   pg.connect(database.connectionString, function (error, client, done) {
     if (error) {
-      return logError('Error connecting to database $1: $2', database.name, error);
+      return logError(error);
     }
+    logSuccess('Okay');
+
+    for (var tableName in database.config.fixtures) {
+      if (database.config.fixtures.hasOwnProperty(tableName)) {
+        database.config.fixtures[tableName].forEach(function (fixture) {
+          var columnNames = database.config.fixtures[tableName];
+          var columns = [];
+          var values = [];
+          var valueVars = [];
+
+          query = 'INSERT INTO ' + tableName + ' (';
+          for (var columnName in fixture) {
+            if (fixture.hasOwnProperty(columnName)) {
+              columns.push(columnName);
+              values.push(fixture[columnName]);
+              valueVars.push('$' + (valueVars.length + 1));
+            }
+          }
+
+          query += columns.join(', ') + ') VALUES (' + valueVars.join(', ') + ')';
+          console.log(query);
+          /*
+          client.query(query, values, function (error, result) {
+            if (error) {
+              done();
+              logError('Error inserting fixture: $1', error);
+            }
+          });
+          // */
+        });
+      }
+    }
+
+    done();
+
+    /*
+    client.on('drain', function () {
+      logSuccess('Inserted $1 fixtures', database.name);
+      done();
+    });
+    // */
+  });
+}
+
+function createTables(database) {
+  if (!database.config.hasOwnProperty('tables') || database.config.tables.length < 1) {
+    return;
+  }
+
+  util.print('Connecting to ' + white + database.name + normal + '... ');
+  pg.connect(database.connectionString, function (error, client, done) {
+    if (error) {
+      return logError(error);
+    }
+    logSuccess('Okay');
 
     var columns;
     var columnName;
@@ -63,22 +114,93 @@ function createTables(database) {
 
         query += columns.join(', ') + ')';
 
+        util.print(
+          'Creating table ' + white + tableName + normal +
+          ' in database ' + white + database.name + normal + '... '
+        );
         client.query(query, function (error, result) {
           if (error) {
-            return logError('Error creating table $1 in database $2: $3', tableName, database.name, error);
+            logError(error);
           }
 
-          logSuccess('Created table $1 in database $2', tableName, database.name);
+          logSuccess('Okay');
         });
       }
     }
 
-    client.on('drain', done);
+    client.on('drain', function () {
+      done();
+      createFixtures(database);
+    });
   });
 }
 
-function createFixtures(database) {
-  // TODO
+function logError(message) { console.log(red + message.toString() + normal); }
+function logNotice(message) { console.log(blue + message.toString() + normal); }
+function logSuccess(message) { console.log(green + message.toString() + normal); }
+
+function startServer() {
+  // Start HTTP server and listening service
+  http.createServer(function (request, response) {
+    var databaseName;
+    var recordId;
+    var tableName;
+    var url = request.url.split('/');
+
+    databaseName = url[1];
+    tableName = url[2];
+    recordId = url[3];
+
+    // TODO: Return "403 Forbidden" if permission check fails
+
+    if (!databases.hasOwnProperty(databaseName) || !databases[databaseName].hasOwnProperty('config')) {
+      response.writeHead(404);
+      return response.end('Database "' + databaseName + '" not found');
+    }
+
+    var database = databases[databaseName];
+    if (!database.config.hasOwnProperty('tables') || !database.config.tables.hasOwnProperty(tableName)) {
+      response.writeHead(404);
+      return response.end('Database table not found');
+    }
+
+    // GET resources     list      List the URIs and perhaps other details
+    // PUT resources     replace   Replace the entire collection
+    // POST resources    create    Create a new entry in the collection
+    // DELETE resources  clear     Delete the entire collection
+    // GET resource      retrieve  Retrieve a representation of the resource
+    // PUT resource      update    Replace the addressed resource (or create if null)
+    // DELETE resource   delete    Delete the addressed resource
+
+    var data;
+    var params = [];
+    var query;
+
+    query = 'SELECT * FROM ' + tableName;
+
+    pg.connect(database.connectionString, function (error, client, done) {
+      if (error) {
+        response.writeHead(500, headers);
+        return response.end({ error: 'Error connecting to database: ' + error});
+      }
+
+      client.query(query, params, function (error, result) {
+        if (error) {
+          response.writeHead(500, headers);
+          return response.end({ error: 'Error running query: ' + error });
+        }
+
+        data = JSON.stringify(result.rows);
+
+        response.writeHead(200, headers);
+        response.end(data);
+
+        done();
+      });
+    });
+  }).listen(config.port, config.host);
+
+  console.log('Server running at http://' + config.host + ':' + config.port);
 }
 
 // Setup and initialize databases
@@ -91,32 +213,35 @@ fs.readdirSync( 'databases' ).forEach(function (databaseConfigScript) {
 
   database.connectionString = connectionPreString + '/' + database.name;
 
+  util.print('Connecting to Postgres... ');
   pg.connect(connectionPreString, function (error, client, done) {
     if (error) {
-      return logError('Error connecting to database: $1', error);
+      return logError(error);
     }
+    logSuccess('Okay');
 
     // Check if the database exists
+    util.print('Checking database ' + white + database.name + normal + '... ');
     client.query('SELECT 1 FROM pg_database WHERE datname = $1', [ database.name ], function (error, result) {
       if (error) {
-        logError('Error looking for database $1: $2', database.name, error);
+        return logError(error);
       }
 
       if (result.rowCount > 0) {
         done();
-        return logNotice('Found existing database $1', database.name);
+        return logNotice('Found');
       }
 
       // Create the database if it doesn't exist
+      util.print('Creating... ');
       var owner = database.config.owner || config.database.user;
       client.query('CREATE DATABASE ' + database.name + ' OWNER = ' + owner, function (error, result) {
-        done();
-
         if (error) {
-          return logError('Error creating database $1: $2', database.name, error);
+          return logError(error);
         }
 
-        logSuccess('Created database $1 with owner $2', database.name, owner);
+        logSuccess('Okay');
+        done();
 
         createTables(database);
       });
@@ -125,65 +250,3 @@ fs.readdirSync( 'databases' ).forEach(function (databaseConfigScript) {
 
   databases[database.name] = database;
 });
-
-// Start HTTP server and listening service
-http.createServer(function (request, response) {
-  var databaseName;
-  var recordId;
-  var tableName;
-  var url = request.url.split('/');
-
-  databaseName = url[1];
-  tableName = url[2];
-  recordId = url[3];
-
-  // TODO: Return "403 Forbidden" if permission check fails
-
-  if (!databases.hasOwnProperty(databaseName) || !databases[databaseName].hasOwnProperty('config')) {
-    response.writeHead(404);
-    return response.end('Database "' + databaseName + '" not found');
-  }
-
-  var database = databases[databaseName];
-  if (!database.config.hasOwnProperty('tables') || !database.config.tables.hasOwnProperty(tableName)) {
-    response.writeHead(404);
-    return response.end('Database table not found');
-  }
-
-  // GET resources     list     List the URIs and perhaps other details
-  // PUT resources     replace  Replace the entire collection
-  // POST resources    create   Create a new entry in the collection
-  // DELETE resources  clear    Delete the entire collection
-  // GET resource      get      Retrieve a representation of the resource
-  // PUT resource      update   Replace the addressed resource (or create if null)
-  // DELETE resource   delete   Delete the addressed resource
-
-  var data;
-  var params = [];
-  var query;
-
-  query = 'SELECT * FROM ' + tableName;
-
-  pg.connect(database.connectionString, function (error, client, done) {
-    if (error) {
-      response.writeHead(500, headers);
-      return response.end({ error: 'Error connecting to database: ' + error});
-    }
-
-    client.query(query, params, function (error, result) {
-      if (error) {
-        response.writeHead(500, headers);
-        return response.end({ error: 'Error running query: ' + error });
-      }
-
-      data = JSON.stringify(result.rows);
-
-      response.writeHead(200, headers);
-      response.end(data);
-
-      done();
-    });
-  });
-}).listen(config.port, config.host);
-
-console.log('Server running at http://' + config.host + ':' + config.port);
