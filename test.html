@@ -4,13 +4,15 @@
     <title>Quarry Test</title>
   </head>
   <body>
-    <p class="output"></p>
+    <div class="output"></div>
 
     <script src="http://lib.forisha.com/snow.min.js"></script>
     <script>
       window.onload = function () {
-        XMLHttpRequest.send('GET', 'http://localhost:2345/josh/cats', function ( data ) {
-          console.log( data );
+        XMLHttpRequest.send('GET', 'http://localhost:2345/test/cats', function ( cats ) {
+          cats.forEach( function ( cat ) {
+            $( '.output' ).appendChild( Element.build( 'p', cat.name + ' (' + cat.age + ' years old)' ));
+          });
         });
       };
     </script>

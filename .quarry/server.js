@@ -4,9 +4,16 @@ var http = require('http');
 var path = require('path');
 var pg = require('pg');
 
+// Color shell strings
+var blue   = '\033[0;34m';
+var green  = '\033[0;32m';
+var normal = '\033[0;m';
+var red    = '\033[0;31m';
+var white  = '\033[1;37m';
+
 // App-specific variables
 var config = require('../config.json');
-var connectionString;
+var connectionPreString;
 var databases = {};
 var headers = {
   'Access-Control-Allow-Headers': config.allowHeaders.join(', '),
@@ -14,23 +21,109 @@ var headers = {
   'Content-Type': 'application/json'
 };
 
-connectionString = 'postgres://' + config.database.user +
+connectionPreString = 'postgres://' + config.database.user +
   (config.database.password ? ':' + config.database.password : '') +
-  '@' + config.database.host + ':' + config.database.port + '/';
+  '@' + config.database.host + ':' + config.database.port;
 
-// Connect to PostgreSQL database
+function log(color, args) {
+  console.log(color + args[0].replace( /\$([0-9]*)/g, function (match, value) {
+    return white + args[value].toString() + color;
+  }) + normal);
+}
+
+function logError() { log(red, arguments); }
+function logNotice() { log(blue, arguments); }
+function logSuccess() { log(green, arguments); }
+
+function createTables(database) {
+  pg.connect(database.connectionString, function (error, client, done) {
+    if (error) {
+      return logError('Error connecting to database $1: $2', database.name, error);
+    }
+
+    var columns;
+    var columnName;
+    var columnNames;
+    var query;
+    var tableName;
+    var type;
+
+    for (tableName in database.config.tables) {
+      if (database.config.tables.hasOwnProperty(tableName)) {
+        columnNames = database.config.tables[tableName];
+        columns = [];
+        query = 'CREATE TABLE ' + tableName + ' (';
+
+        for (columnName in columnNames) {
+          if (columnNames.hasOwnProperty(columnName)) {
+            type = columnNames[columnName];
+            columns.push(columnName + ' ' + type);
+          }
+        }
+
+        query += columns.join(', ') + ')';
+
+        client.query(query, function (error, result) {
+          if (error) {
+            return logError('Error creating table $1 in database $2: $3', tableName, database.name, error);
+          }
+
+          logSuccess('Created table $1 in database $2', tableName, database.name);
+        });
+      }
+    }
+
+    client.on('drain', done);
+  });
+}
+
+function createFixtures(database) {
+  // TODO
+}
+
 // Setup and initialize databases
 fs.readdirSync( 'databases' ).forEach(function (databaseConfigScript) {
-  var databaseName = path.basename(databaseConfigScript, '.json');
-  var databaseConfig = require('../databases/' + databaseConfigScript);
-
-  // TODO: Setup database if it doesn't exist
-  console.log('Setting up database "' + databaseName + '"...');
-
-  databases[databaseName] = {
-    config: databaseConfig,
-    connectionString: connectionString + databaseName
+  var connectionString;
+  var database = {
+    config: require('../databases/' + databaseConfigScript),
+    name: path.basename(databaseConfigScript, '.json')
   };
+
+  database.connectionString = connectionPreString + '/' + database.name;
+
+  pg.connect(connectionPreString, function (error, client, done) {
+    if (error) {
+      return logError('Error connecting to database: $1', error);
+    }
+
+    // Check if the database exists
+    client.query('SELECT 1 FROM pg_database WHERE datname = $1', [ database.name ], function (error, result) {
+      if (error) {
+        logError('Error looking for database $1: $2', database.name, error);
+      }
+
+      if (result.rowCount > 0) {
+        done();
+        return logNotice('Found existing database $1', database.name);
+      }
+
+      // Create the database if it doesn't exist
+      var owner = database.config.owner || config.database.user;
+      client.query('CREATE DATABASE ' + database.name + ' OWNER = ' + owner, function (error, result) {
+        done();
+
+        if (error) {
+          return logError('Error creating database $1: $2', database.name, error);
+        }
+
+        logSuccess('Created database $1 with owner $2', database.name, owner);
+
+        createTables(database);
+      });
+    });
+  });
+
+  databases[database.name] = database;
 });
 
 // Start HTTP server and listening service

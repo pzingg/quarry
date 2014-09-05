@@ -1,0 +1,31 @@
+{
+  "tables": {
+    "cats": {
+      "id"   : "serial",
+      "age"  : "integer NOT NULL",
+      "name" : "text NOT NULL"
+    },
+
+    "users": {
+      "id"       : "serial",
+      "email"    : "text NOT NULL",
+      "name"     : "text NOT NULL",
+      "password" : "text NOT NULL"
+    }
+  },
+
+  "fixtures": {
+    "cats": [
+      { "name": "Baron", "age": 8 },
+      { "name": "Mocha", "age": 6 },
+      { "name": "Ping",  "age": 4 }
+    ],
+
+    "users": [
+      { "name": "Jon",   "email": "jon@forisha.com",   "password": "jonpw" },
+      { "name": "Josh",  "email": "josh@forisha.com",  "password": "joshpw" },
+      { "name": "Kathy", "email": "kathy@forisha.com", "password": "kathypw" },
+      { "name": "Tom",   "email": "tom@forisha.com",   "password": "tompw" }
+    ]
+  }
+}
