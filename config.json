@@ -1,4 +1,8 @@
 {
+  "allowHeaders": [
+    "X-Requested-With"
+  ],
+  "allowOrigin": "*",
   "host": "localhost",
   "port": 2345,
 

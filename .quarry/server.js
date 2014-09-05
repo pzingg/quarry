@@ -8,6 +8,11 @@ var pg = require('pg');
 var config = require('../config.json');
 var connectionString;
 var databases = {};
+var headers = {
+  'Access-Control-Allow-Headers': config.allowHeaders.join(', '),
+  'Access-Control-Allow-Origin': config.allowOrigin,
+  'Content-Type': 'application/json'
+};
 
 connectionString = 'postgres://' + config.database.user +
   (config.database.password ? ':' + config.database.password : '') +
@@ -68,19 +73,19 @@ http.createServer(function (request, response) {
 
   pg.connect(database.connectionString, function (error, client, done) {
     if (error) {
-      response.writeHead(500);
-      return response.end('Error connecting to database: ' + error);
+      response.writeHead(500, headers);
+      return response.end({ error: 'Error connecting to database: ' + error});
     }
 
     client.query(query, params, function (error, result) {
       if (error) {
-        response.writeHead(500);
-        return response.end('Error running query: ' + error);
+        response.writeHead(500, headers);
+        return response.end({ error: 'Error running query: ' + error });
       }
 
       data = JSON.stringify(result.rows);
 
-      response.writeHead(200, { 'Content-Type': 'application/json' });
+      response.writeHead(200, headers);
       response.end(data);
 
       done();
