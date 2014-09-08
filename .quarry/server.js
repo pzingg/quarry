@@ -5,14 +5,16 @@ var path = require('path');
 var pg   = require('pg');
 var util = require('util');
 
-// Color shell strings
-var blue   = '\033[0;34m';
-var green  = '\033[0;32m';
+// Shell color strings
 var normal = '\033[0;m';
-var purple = '\033[0;35m';
+var gray   = '\033[1;30m';
 var red    = '\033[0;31m';
-var white  = '\033[1;37m';
+var green  = '\033[0;32m';
 var yellow = '\033[0;33m';
+var blue   = '\033[0;34m';
+var purple = '\033[0;35m';
+var cyan   = '\033[0;36m';
+var white  = '\033[1;37m';
 
 // App-specific variables
 var config = require('../config.json');
@@ -41,36 +43,36 @@ function createTables(database) {
 
     for (var tableName in database.config.tables) {
       if (database.config.tables.hasOwnProperty(tableName)) {
-        var columnNames = database.config.tables[tableName];
+        var table = database.config.tables[tableName];
         var columns = [];
         var query = 'CREATE TABLE ' + tableName + ' (';
         var type;
 
-        for (var columnName in columnNames) {
-          if (columnNames.hasOwnProperty(columnName)) {
-            type = columnNames[columnName];
+        for (var columnName in table.columns) {
+          if (table.columns.hasOwnProperty(columnName)) {
+            type = table.columns[columnName];
             columns.push(columnName + ' ' + type);
           }
         }
 
         query += columns.join(', ') + ')';
 
-        (function (_tableName) {
+        (function (_tableName, _table) {
           client.query(query, function (error, result) {
             if (error) {
-              logError('Error creating table $1 in database $2', _tableName, database.name);
+              logError('Error creating table $1:$2', database.name, _tableName);
               return console.log(error.toString());
             }
 
-            logSuccess('Created table $1 in database $2', _tableName, database.name);
+            logSuccess('Created table $1:$2', database.name, _tableName);
 
-            if (!database.config.hasOwnProperty('fixtures') || !database.config.fixtures.hasOwnProperty(_tableName)) {
-              return logNotice('No $1 fixture data found for database $2', _tableName, database.name);
+            if (!table.hasOwnProperty('fixtures')) {
+              return logNotice('No fixture data found for $1:$2', database.name, _tableName);
             }
 
-            logInfo('Inserting $1 fixtures in database $2', _tableName, database.name);
+            logInfo('Inserting fixtures for $1:$2', database.name, _tableName);
 
-            database.config.fixtures[_tableName].forEach(function (fixture) {
+            _table.fixtures.forEach(function (fixture) {
               var values = [];
               var valueVars = [];
 
@@ -95,13 +97,13 @@ function createTables(database) {
               });
             });
           });
-        })(tableName);
+        })(tableName, table);
       }
     }
 
     client.on('drain', function () {
-      logSuccess('Finished adding tables and fixtures');
       done();
+      startServer();
     });
   });
 }
@@ -120,6 +122,7 @@ function logWarning() { log(yellow, arguments || []); }
 
 function startServer() {
   http.createServer(function (request, response) {
+    var database;
     var databaseName;
     var recordId;
     var tableName;
@@ -129,43 +132,79 @@ function startServer() {
     tableName = url[2];
     recordId = url[3];
 
-    // TODO: Return "403 Forbidden" if permission check fails
-
     if (!databases.hasOwnProperty(databaseName) || !databases[databaseName].hasOwnProperty('config')) {
       response.writeHead(404);
       return response.end('Database "' + databaseName + '" not found');
     }
 
-    var database = databases[databaseName];
+    database = databases[databaseName];
     if (!database.config.hasOwnProperty('tables') || !database.config.tables.hasOwnProperty(tableName)) {
       response.writeHead(404);
       return response.end('Database table not found');
     }
 
-    // GET resources     list      List the URIs and perhaps other details
-    // PUT resources     replace   Replace the entire collection
-    // POST resources    create    Create a new entry in the collection
-    // DELETE resources  clear     Delete the entire collection
-    // GET resource      retrieve  Retrieve a representation of the resource
-    // PUT resource      update    Replace the addressed resource (or create if null)
-    // DELETE resource   delete    Delete the addressed resource
-
-    var data;
-    var params = [];
-    var query;
-
-    query = 'SELECT * FROM ' + tableName;
-
     pg.connect(database.connectionString, function (error, client, done) {
+      var action;
+      var data;
+      var params = [];
+      var query;
+
+      // GET     /resources      findAll     List the URIs and perhaps other details
+      // PUT     /resources      replaceAll  Replace the entire collection
+      // POST    /resources      create      Create a new entry in the collection
+      // DELETE  /resources      deleteAll   Delete the entire collection
+      // GET     /resources/:id  find        Retrieve a representation of the resource
+      // PUT     /resources/:id  update      Replace the addressed resource (or create if null)
+      // DELETE  /resources/:id  delete      Delete the addressed resource
+
+      switch (request.method) {
+        case 'DELETE':
+          action = recordId ? 'delete' : 'deleteAll';
+          break;
+
+        case 'GET':
+          action = recordId ? 'find' : 'findAll';
+          break;
+
+        case 'PUT':
+          action = recordId ? 'update' : 'replaceAll';
+          break;
+
+        case 'POST':
+          if (!recordId) {
+            action = 'create';
+            break;
+          }
+
+        default:
+          response.writeHead(405, headers);
+          return response.end();
+      }
+
+      // TODO: Return "403 Forbidden" if permission check fails
+
+      switch (action) {
+        case 'find':
+          query = 'SELECT * FROM ' + tableName + ' WHERE id = $1';
+          params.push(recordId);
+          break;
+
+        case 'findAll':
+          query = 'SELECT * FROM ' + tableName;
+          break;
+
+        // TODO: Add remaining actions
+      }
+
       if (error) {
         response.writeHead(500, headers);
-        return response.end({ error: 'Error connecting to database: ' + error });
+        return response.end(JSON.stringify({ error: 'Error connecting to database: ' + error }));
       }
 
       client.query(query, params, function (error, result) {
         if (error) {
           response.writeHead(500, headers);
-          return response.end({ error: 'Error running query: ' + error });
+          return response.end(JSON.stringify({ error: 'Error running query: ' + error }));
         }
 
         data = JSON.stringify(result.rows);
@@ -182,11 +221,11 @@ function startServer() {
 }
 
 // Setup and initialize databases
-fs.readdirSync( 'databases' ).forEach(function (databaseConfigScript) {
+fs.readdirSync('databases').forEach(function (databaseConfigScript) {
   var connectionString;
   var database = {
     config: require('../databases/' + databaseConfigScript),
-    name: path.basename(databaseConfigScript, '.json')
+    name: path.basename(databaseConfigScript, '.js')
   };
 
   database.connectionString = connectionPreString + '/' + database.name;
@@ -206,7 +245,8 @@ fs.readdirSync( 'databases' ).forEach(function (databaseConfigScript) {
 
       if (result.rowCount > 0) {
         done();
-        return logNotice('Found database $1', database.name);
+        logNotice('Found database $1', database.name);
+        return startServer();
       }
 
       // Create the database if it doesn't exist
