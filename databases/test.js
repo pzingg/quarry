@@ -11,7 +11,16 @@ module.exports = {
         { name: 'Baron', age: 8 },
         { name: 'Mocha', age: 6 },
         { name: 'Ping',  age: 4 }
-      ]
+      ],
+
+      allow: {
+        find: true,
+
+        findAll: function ( request ) {
+          console.log( 'findAll request:', request );
+          return true;
+        }
+      }
     },
 
     users: {
@@ -27,13 +36,9 @@ module.exports = {
         { name: 'Josh',  email: 'josh@forisha.com',  password: 'joshpw' },
         { name: 'Kathy', email: 'kathy@forisha.com', password: 'kathypw' },
         { name: 'Tom',   email: 'tom@forisha.com',   password: 'tompw' }
-      ],
+      ]
 
-      allow: { // create, delete, deleteAll, find, findAll, replaceAll, update
-        findAll: function ( request ) {
-          console.log( 'findAll request:', request );
-        }
-      }
+      // No "allow" object: No allowed actions on this table
     }
   }
 };

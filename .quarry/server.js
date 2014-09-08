@@ -120,11 +120,17 @@ function logNotice()  { log(blue,   arguments || []); }
 function logSuccess() { log(green,  arguments || []); }
 function logWarning() { log(yellow, arguments || []); }
 
+function respond(response, status, data) {
+  response.writeHead(status, headers);
+  response.end(JSON.stringify(data));
+}
+
 function startServer() {
   http.createServer(function (request, response) {
     var database;
     var databaseName;
     var recordId;
+    var table;
     var tableName;
     var url = request.url.split('/');
 
@@ -132,16 +138,17 @@ function startServer() {
     tableName = url[2];
     recordId = url[3];
 
+    // Return "404 Not Found" if the database is not defined
     if (!databases.hasOwnProperty(databaseName) || !databases[databaseName].hasOwnProperty('config')) {
-      response.writeHead(404);
-      return response.end('Database "' + databaseName + '" not found');
+      return respond(response, 404, { error: 'Database "' + databaseName + '" not found' });
     }
-
     database = databases[databaseName];
+
+    // Return "404 Not Found" if the table is not defined
     if (!database.config.hasOwnProperty('tables') || !database.config.tables.hasOwnProperty(tableName)) {
-      response.writeHead(404);
-      return response.end('Database table not found');
+      return respond(response, 404, { error: 'Database table "' + tableName + '" not found' });
     }
+    table = database.config.tables[tableName];
 
     pg.connect(database.connectionString, function (error, client, done) {
       var action;
@@ -177,11 +184,17 @@ function startServer() {
           }
 
         default:
-          response.writeHead(405, headers);
-          return response.end();
+          return respond(response, 405, { error: 'Method and request do not form a valid action' });
       }
 
-      // TODO: Return "403 Forbidden" if permission check fails
+      // Return "403 Forbidden" if the action is not allowed
+      if (
+        !table.hasOwnProperty('allow') ||
+        !table.allow.hasOwnProperty(action) ||
+        (typeof table.allow[action] === 'function' ? !table.allow[action](request) : !table.allow[action])
+      ) {
+        return respond(response, 403, { error: 'Forbidden' });
+      }
 
       switch (action) {
         case 'find':
