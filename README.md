@@ -1,6 +1,6 @@
-## quarry
+## Quarry
 
-A RESTful database request server. It listens for seven types of REST requests and responds with JSON resources.
+A RESTful database request server. It listens for seven types of REST requests and responds with [JSON API formatted](http://jsonapi.org) resources.
 
 ### Install
 
