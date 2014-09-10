@@ -31,6 +31,7 @@ Create a JSON config file for Quarry (default `quarry.json`) with the following 
 
 Each database will need its own JavaScript file in order to outline its tables, fixtures, and permissions. This "database script" file will simply export an object with the following allowed nested parameters:
 
+- **name** : Optional database name parameter; if this is not supplied, then the file name of the database script is assumed to be the name of the database (i.e., "databases/example.js" would create a database "example")
 - **tables** : A hash of table definitions, where the key is the table name, and the value is an object with the following parameters:
   - **columns** : A hash of column definitions, where the key is the column name, and the value is a string representing the data type
   - **fixtures** : An array of hashes containing keys and values for the columns
@@ -52,16 +53,14 @@ The RESTful "actions" are a friendly way to refer to REST requests, and each rep
 
 ### Quarry Command
 
-- **start** : Start the Quarry server in the current directory, with options:
+- **serve** : Start the Quarry server in the current directory, with options:
   - *-c, --config [file]* : Use a specified config file, instead of the default "quarry.json"
 
 ### Examples
 
-The following scripts would result in
+#### Quarry config, "quarry.json"
 
-#### Quarry config, "quarry.js"
-
-```js
+```json
 {
   "connection": {
     "host": "localhost",

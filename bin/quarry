@@ -11,7 +11,7 @@ program
   .option('-c, --config [file]', 'use config file [quarry.json]', 'quarry.json');
 
 program
-  .command('start')
+  .command('serve')
   .description('Start the Quarry server from the current directory')
   .action(function () {
     var config = require(process.cwd() + '/' + program.config);
