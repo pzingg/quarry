@@ -10,9 +10,9 @@ npm install -g quarry
 
 ### Setup
 
-Currently, Quarry is built exclusively for PostgreSQL databases. Support for other database options will be added in the future, and prior to the 1.0 release.
+Currently, Quarry is built exclusively for PostgreSQL databases. Support for other database options will be added in the future, prior to the 1.0 release.
 
-For now, you'll need PostgreSQL installed and started prior to running Quarry.
+For now, you'll need PostgreSQL installed and started before running Quarry.
 
 #### Quarry Config
 
@@ -107,3 +107,8 @@ module.exports = {
   }
 }
 ```
+
+The above two configurations would result in two valid endpoints:
+
+- *findAll* action: GET http://db.example.com:54321/example/colors
+- *update* action: PUT http://db.example.com:54321/example/colors/:id
