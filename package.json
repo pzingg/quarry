@@ -1,7 +1,7 @@
 {
   "name": "quarry",
-  "version": "0.0.3",
-  "description": "An abstracted RESTful database server app",
+  "version": "0.1.0",
+  "description": "A RESTful database server app",
   "keywords": [
     "database",
     "postgres",
