@@ -15,7 +15,7 @@ program
   .description('Start the Quarry server from the current directory')
   .action(function () {
     var config = require(process.cwd() + '/' + program.config);
-    require('../lib/start')(config);
+    require('../lib/serve')(config);
   });
 
 program.parse(process.argv);
