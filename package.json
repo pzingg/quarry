@@ -1,15 +1,30 @@
 {
   "name": "quarry",
   "version": "0.0.3",
-  "description": "RESTful database abstraction application",
-  "main": ".quarry/server.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": "https://github.com/joshforisha/quarry",
-  "author": "Josh Forisha <josh@forisha.com>",
+  "description": "An abstracted RESTful database server app",
+  "keywords": [
+    "database",
+    "postgres",
+    "postgresql",
+    "rest",
+    "restful"
+  ],
+  "homepage": "https://github.com/joshforisha/quarry",
+  "bugs": "https://github.com/joshforisha/quarry/issues",
   "license": "MIT",
+  "author": "Josh Forisha <josh@forisha.com> (http://joshforisha.com)",
+  "main": "bin/quarry",
+  "bin": "./bin/quarry",
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/joshforisha/quarry.git"
+  },
   "dependencies": {
+    "commander": "^2.3.0",
     "pg": "^3.4.2"
-  }
+  },
+  "engines": {
+    "node": ">=0.10.0"
+  },
+  "preferGlobal": true
 }

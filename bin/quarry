@@ -1,0 +1,25 @@
+#!/usr/bin/env node
+
+// Provide a title to the process
+process.title = 'quarry';
+
+var program = require('commander');
+
+program
+  .version('0.1.0')
+  .usage('[options] <command>')
+  .option('-c, --config [file]', 'use config file [quarry.json]', 'quarry.json');
+
+program
+  .command('serve')
+  .description('Start the Quarry server from the current directory')
+  .action(function () {
+    var config = require(process.cwd() + '/' + program.config);
+    require('../lib/serve')(config);
+  });
+
+program.parse(process.argv);
+
+if (program.args.length === 0) {
+  program.help();
+}
