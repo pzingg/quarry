@@ -8,6 +8,9 @@ A RESTful database request server. It listens for seven types of REST requests a
 npm install -g quarry
 ```
 
+### TODO
+_etags
+
 ### Setup
 
 Currently, Quarry is built exclusively for PostgreSQL databases. Support for other database options will be added in the future, prior to the 1.0 release.
@@ -24,18 +27,25 @@ Create a JSON config file for Quarry (default `quarry.json`) with the following 
   - **user** : The name of the user/role to connect to the database with
   - **password** : The password for the user/role
 - **databaseScripts** : An array of JavaScript file names used for specific database configurations (see below)
-- **host** : The host address to bind the Quarry connection to
-- **port** : The port number to listen for requests on
+  - **host** : The host address to bind the Quarry connection to
+  - **port** : The port number to listen for requests on
 
 #### Database Scripts
 
 Each database will need its own JavaScript file in order to outline its tables, fixtures, and permissions. This "database script" file will simply export an object with the following allowed nested parameters:
 
 - **name** : Optional database name parameter; if this is not supplied, then the file name of the database script is assumed to be the name of the database (i.e., "databases/example.js" would create a database "example")
+- **max_results**: Optional maximum number of rows to return in a findAll operation; can be overridden by table configuration or query string.
 - **tables** : A hash of table definitions, where the key is the table name, and the value is an object with the following parameters:
   - **columns** : A hash of column definitions, where the key is the column name, and the value is a string representing the data type
   - **fixtures** : An array of hashes containing keys and values for the columns
+  - **pk**: Optional: the column name for the primary key used in the table's API if not the expected value 'id'.
+  - **filtered** : An optional function that takes (value, key, request)
+parameters and returns a boolean value if the found object's attribute 
+should be returned by the API. Examples: filter out null values and
+only return private values like passwords to specifically authorized requests.
   - **allow** : A hash of values or functions, where the key is the RESTful "action" name, and the value is either a boolean value, or a function that accepts the request data and returns a boolean value (when true, the request action is allowed). When an action is *not* mentioned in this hash, it is not allowed (equivalent to *false* value).
+  - **max_results**: Optional maximum number of rows to return in a findAll operation; can be overridden by query string.
 
 For convenience, and certainly not for security, you can simply set **allow** to *true*, in order to allow all the actions to be permitted on the table. This is definitely not recommended for stable or production projects, but is intended as an easy way to get up and running quickly.
 
@@ -50,6 +60,10 @@ The RESTful "actions" are a friendly way to refer to REST requests, and each rep
 - *findAll* (GET /resources) Retrieve all the collection's resources
 - *replaceAll* (PUT /resources) Replace the entire collection
 - *update* (PUT /resources/:id) Replace the addressed resource (or create if null)
+
+*findAll* actions can be paginated by using two query string parameters:
+- **page**: 1-based page of results to fetch
+- **max_results**: Maximum number of rows to fetch per page (see configuration details for this above)
 
 ### Quarry Command
 
