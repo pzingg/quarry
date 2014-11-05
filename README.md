@@ -9,7 +9,9 @@ npm install -g quarry
 ```
 
 ### TODO
-_etags
+- etags
+- sorting
+- query language, MongoDB-like syntax
 
 ### Setup
 
@@ -62,8 +64,8 @@ The RESTful "actions" are a friendly way to refer to REST requests, and each rep
 - *update* (PUT /resources/:id) Replace the addressed resource (or create if null)
 
 *findAll* actions can be paginated by using two query string parameters:
-- **page**: 1-based page of results to fetch
-- **max_results**: Maximum number of rows to fetch per page (see configuration details for this above)
+- **page** : 1-based page number of results to fetch
+- **max_results** : Maximum number of rows to fetch per page (see configuration details for this above)
 
 ### Quarry Command
 
